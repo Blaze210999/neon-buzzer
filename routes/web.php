@@ -1,20 +1,20 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\GameController;
+use App\Http\Controllers\PlayerController;
 
+// Redirect awal ke layar utama
 Route::get('/', function () {
-    return view('welcome');
+    return redirect('/display/neon');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+// Routes untuk Layar Utama (Proyektor) & Admin Panel
+Route::get('/display/{code}', [GameController::class, 'display'])->name('game.display');
+Route::get('/admin/{code}', [GameController::class, 'admin'])->name('game.admin');
 
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-});
-
-require __DIR__.'/auth.php';
+// Routes untuk Player (HP)
+Route::get('/join/{code}', [PlayerController::class, 'joinForm'])->name('player.joinForm');
+Route::post('/join/{code}', [PlayerController::class, 'join'])->name('player.join');
+Route::get('/play/{code}', [PlayerController::class, 'play'])->name('player.play');
+require __DIR__ . '/auth.php';

@@ -8,7 +8,7 @@ use App\Models\Buzz;
 use App\Events\PlayerBuzzed;
 use App\Events\GameStateChanged;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Cache; // PENTING: Jangan sampai ketinggalan
 
 class PlayerController extends Controller
 {
@@ -22,12 +22,10 @@ class PlayerController extends Controller
     {
         $request->validate(['name' => 'required|string|max:20']);
         $room = Room::where('code', $code)->firstOrFail();
-
         $player = Player::updateOrCreate(
             ['session_id' => session()->getId(), 'room_id' => $room->id],
             ['name' => $request->name]
         );
-
         session(['player_id' => $player->id]);
         return redirect()->route('player.play', $code);
     }
@@ -42,31 +40,29 @@ class PlayerController extends Controller
     public function buzz(Request $request, $code)
     {
         $room = Room::where('code', $code)->firstOrFail();
-        $player = Player::findOrFail(session('player_id'));
+        // Pastikan player_id dikirim dari frontend
+        $player = Player::findOrFail($request->player_id);
 
         if ($room->status !== 'playing') {
-            return response()->json(['error' => 'Game belum dimulai / dikunci'], 403);
+            return response()->json(['error' => 'Game Locked'], 403);
         }
 
-        // Fitur Atomic Lock: Mencegah bentrok jika ditekan bersamaan dalam hitungan milidetik
         $lock = Cache::lock("buzzer_lock_{$room->id}", 10);
-
         if ($lock->get()) {
             $room->update(['status' => 'locked']);
-            $reactionTime = $request->reaction_time ?? 0;
 
             Buzz::create([
                 'room_id' => $room->id,
                 'player_id' => $player->id,
-                'reaction_time_ms' => $reactionTime
+                'reaction_time_ms' => $request->reaction_time ?? 0
             ]);
 
-            broadcast(new PlayerBuzzed($player, $reactionTime));
+            // Kirim sinyal ke Reverb
+            broadcast(new PlayerBuzzed($player, $request->reaction_time ?? 0));
             broadcast(new GameStateChanged($room->id, 'locked'));
 
             return response()->json(['status' => 'winner']);
         }
-
         return response()->json(['status' => 'late']);
     }
 }
