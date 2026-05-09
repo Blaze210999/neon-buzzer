@@ -55,6 +55,19 @@
                     </div>
                 </div>
             </a>
+            <!-- Tombol Audit Log -->
+            <a href="{{ route('game.admin.logs') }}"
+                class="group block bg-gray-800 border border-gray-700 hover:border-purple-500 rounded-2xl p-6 transition-all shadow-lg mt-2 relative overflow-hidden">
+                <div class="absolute inset-0 bg-purple-500/5 group-hover:bg-purple-500/10 transition"></div>
+                <div class="flex items-center justify-between relative z-10">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-300 group-hover:text-purple-400 transition-colors mb-1">
+                            🕵️‍♂️ AUDIT LOG (VAR)</h2>
+                        <p class="text-gray-500 text-sm">Lihat riwayat lengkap siapa yang memencet bel, penambahan poin,
+                            dan penalti.</p>
+                    </div>
+                </div>
+            </a>
         </div>
     </div>
 

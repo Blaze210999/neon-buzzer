@@ -89,11 +89,27 @@ class GameController extends Controller
         $player = $room->players()->findOrFail($request->player_id);
         $multiplier = (int) ($request->multiplier ?? 1);
 
+        $poinBerubah = 0;
         if ($request->is_correct) {
-            $player->increment('score', $room->poin_benar * $multiplier); // AMBIL DARI DATABASE
+            $poinBerubah = $room->poin_benar * $multiplier;
+            $player->increment('score', $poinBerubah);
         } else {
-            $player->decrement('score', $room->poin_salah * $multiplier); // AMBIL DARI DATABASE
+            $poinBerubah = - ($room->poin_salah * $multiplier);
+            $player->decrement('score', abs($poinBerubah));
         }
+
+        // CATAT KE AUDIT LOG
+        \App\Models\GameLog::create([
+            'room_id' => $room->id,
+            'player_id' => $player->id,
+            'action' => 'answer',
+            'payload' => [
+                'is_correct' => $request->is_correct,
+                'multiplier' => $multiplier,
+                'points_changed' => $poinBerubah,
+                'new_total_score' => $player->fresh()->score
+            ]
+        ]);
 
         $room->update(['status' => 'waiting', 'timer_ends_at' => null]);
         broadcast(new \App\Events\GameStateChanged($room->id, 'reset'));
@@ -106,7 +122,19 @@ class GameController extends Controller
         $player = \App\Models\Player::find($request->player_id);
 
         if ($player) {
-            $player->decrement('score', $room->poin_salah); // AMBIL DARI DATABASE
+            $player->decrement('score', $room->poin_salah);
+
+            // CATAT KE AUDIT LOG
+            \App\Models\GameLog::create([
+                'room_id' => $room->id,
+                'player_id' => $player->id,
+                'action' => 'penalty',
+                'payload' => [
+                    'reason' => 'waktu_habis',
+                    'points_deducted' => $room->poin_salah,
+                    'new_total_score' => $player->fresh()->score
+                ]
+            ]);
         }
 
         $room->update(['status' => 'waiting', 'timer_ends_at' => null]);
@@ -159,5 +187,18 @@ class GameController extends Controller
             'poin_salah' => $request->poin_salah,
         ]);
         return redirect()->route('game.admin.dashboard')->with('success', 'Pengaturan berhasil disimpan!');
+    }
+    // Halaman Audit Log (VAR)
+    public function adminLogs($code)
+    {
+        $room = \App\Models\Room::where('code', $code)->firstOrFail();
+
+        // Ambil data log, urutkan dari yang paling baru, dan sertakan relasi data pemainnya
+        $logs = \App\Models\GameLog::with('player')
+            ->where('room_id', $room->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return view('admin.logs', compact('room', 'logs'));
     }
 }

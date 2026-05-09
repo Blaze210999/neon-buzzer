@@ -18,3 +18,4 @@ Route::get('/admin/control', [GameController::class, 'adminControl'])->defaults(
 
 Route::get('/admin/settings', [GameController::class, 'adminSettings'])->defaults('code', 'neon')->name('game.admin.settings');
 Route::post('/admin/settings', [GameController::class, 'saveSettings'])->defaults('code', 'neon')->name('game.admin.settings.save');
+Route::get('/admin/logs', [GameController::class, 'adminLogs'])->defaults('code', 'neon')->name('game.admin.logs');

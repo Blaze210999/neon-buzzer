@@ -26,23 +26,32 @@ class PlayerController extends Controller
 
     public function join(Request $request, $code)
     {
-        $room = Room::where('code', $code)->firstOrFail();
-
-        // CEK SEKALI LAGI SAAT SUBMIT NAMA
+        $room = \App\Models\Room::where('code', $code)->firstOrFail();
         if (cache('room_locked_' . $room->id)) {
             return view('player.locked');
         }
 
         $request->validate(['name' => 'required|string|max:20']);
-        $player = Player::updateOrCreate(
+
+        // Cek apakah pemain ini orang baru atau reconnect
+        $isReconnect = \App\Models\Player::where('session_id', session()->getId())
+            ->where('room_id', $room->id)->exists();
+
+        $player = \App\Models\Player::updateOrCreate(
             ['session_id' => session()->getId(), 'room_id' => $room->id],
             ['name' => $request->name]
         );
         session(['player_id' => $player->id]);
 
-        // Beri sinyal ke layar proyektor bahwa ada pemain baru masuk!
-        broadcast(new GameStateChanged($room->id, 'player_joined'));
+        // CATAT KE AUDIT LOG
+        \App\Models\GameLog::create([
+            'room_id' => $room->id,
+            'player_id' => $player->id,
+            'action' => $isReconnect ? 'reconnect' : 'join',
+            'payload' => ['ip_address' => $request->ip()]
+        ]);
 
+        broadcast(new \App\Events\GameStateChanged($room->id, 'player_joined'));
         return redirect()->route('player.play');
     }
 
@@ -55,34 +64,26 @@ class PlayerController extends Controller
 
     public function buzz(Request $request, $code)
     {
-        // Cari room dan player
-        $room = Room::where('code', $code)->firstOrFail();
-        $player = Player::findOrFail($request->player_id);
+        $room = \App\Models\Room::where('code', $code)->firstOrFail();
+        $player = \App\Models\Player::findOrFail($request->player_id);
 
-        // ATOMIC UPDATE: Trik jitu mencegah Race Condition!
-        // Kita paksa database mengubah status HANYA JIKA status saat ini adalah 'playing'.
-        // Query ini akan mengembalikan angka 1 (jika berhasil) atau 0 (jika gagal/keduluan).
-        $affectedRows = Room::where('id', $room->id)
+        $affectedRows = \App\Models\Room::where('id', $room->id)
             ->where('status', 'playing')
             ->update(['status' => 'locked']);
 
-        // Jika berhasil diubah (berarti dia yang tercepat)
         if ($affectedRows > 0) {
-
-            \App\Models\Buzz::create([
+            // CATAT KE AUDIT LOG
+            \App\Models\GameLog::create([
                 'room_id' => $room->id,
                 'player_id' => $player->id,
-                'reaction_time_ms' => $request->reaction_time ?? 0
+                'action' => 'buzz',
+                'payload' => ['reaction_time_ms' => $request->reaction_time ?? 0]
             ]);
 
-            // Kirim sinyal ke Reverb bahwa ada yang menang
-            broadcast(new PlayerBuzzed($player, $request->reaction_time ?? 0));
-            broadcast(new GameStateChanged($room->id, 'locked'));
-
+            broadcast(new \App\Events\PlayerBuzzed($player, $request->reaction_time ?? 0));
+            broadcast(new \App\Events\GameStateChanged($room->id, 'locked'));
             return response()->json(['status' => 'winner']);
         }
-
-        // Jika affectedRows 0, berarti dia telat atau game sedang tidak dalam status 'playing'
         return response()->json(['status' => 'late']);
     }
 }
