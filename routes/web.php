@@ -4,17 +4,17 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\PlayerController;
 
-// Redirect awal ke layar utama
-Route::get('/', function () {
-    return redirect('/display/neon');
-});
+// 1. URL Utama (Root) langsung diarahkan ke HP Pemain (Buzzer)
+Route::get('/', [PlayerController::class, 'joinForm'])->defaults('code', 'neon')->name('player.joinForm');
+Route::post('/', [PlayerController::class, 'join'])->defaults('code', 'neon')->name('player.join');
+Route::get('/play', [PlayerController::class, 'play'])->defaults('code', 'neon')->name('player.play');
 
-// Routes untuk Layar Utama (Proyektor) & Admin Panel
-Route::get('/display/{code}', [GameController::class, 'display'])->name('game.display');
-Route::get('/admin/{code}', [GameController::class, 'admin'])->name('game.admin');
+// 2. URL untuk Layar Proyektor
+Route::get('/display', [GameController::class, 'display'])->defaults('code', 'neon')->name('game.display');
 
-// Routes untuk Player (HP)
-Route::get('/join/{code}', [PlayerController::class, 'joinForm'])->name('player.joinForm');
-Route::post('/join/{code}', [PlayerController::class, 'join'])->name('player.join');
-Route::get('/play/{code}', [PlayerController::class, 'play'])->name('player.play');
-require __DIR__ . '/auth.php';
+// 3. URL untuk Admin Panel
+Route::get('/admin', [GameController::class, 'adminDashboard'])->defaults('code', 'neon')->name('game.admin.dashboard');
+Route::get('/admin/control', [GameController::class, 'adminControl'])->defaults('code', 'neon')->name('game.admin.control');
+
+Route::get('/admin/settings', [GameController::class, 'adminSettings'])->defaults('code', 'neon')->name('game.admin.settings');
+Route::post('/admin/settings', [GameController::class, 'saveSettings'])->defaults('code', 'neon')->name('game.admin.settings.save');
