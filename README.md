@@ -1,58 +1,56 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Neon Quiz - Sistem Buzzer Kuis Real-Time Profesional
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+**Neon Quiz** adalah platform manajemen kuis interaktif berbasis jaringan lokal (LAN) yang dirancang untuk menghadirkan pengalaman *Game Show* televisi ke acara Anda. Dengan sinkronisasi *real-time* menggunakan WebSockets, aplikasi ini memastikan kecepatan respons milidetik antara pemain dan sistem.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 🏛️ Arsitektur Sistem
+Aplikasi ini terdiri dari tiga antarmuka utama yang bekerja secara harmonis:
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+1.  **Layar Proyektor (`/display`)**: Antarmuka publik untuk audiens yang menampilkan timer, skor, animasi klasemen, dan efek suara.
+2.  **Remote Admin (`/admin`)**: Pusat kendali rahasia bagi Game Master untuk mengelola sesi, memutar lagu, dan memberikan poin.
+3.  **HP Pemain (`/`)**: Antarmuka sederhana bagi peserta yang berfungsi sebagai tombol buzzer fisik di smartphone mereka.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## 🔥 Fitur Unggulan
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### 🛡️ Keamanan & Anti-Curang
+* **1 Device = 1 Player**: Menggunakan sistem *UUID & Cookie Fingerprinting* untuk mencegah pemain membuka banyak tab atau mengganti nama di tengah permainan.
+* **Lobby Locking**: Admin dapat mengunci pendaftaran pemain saat game dimulai untuk mencegah penyusup.
+* **Audit Log (VAR System)**: Mencatat setiap aktivitas secara detail (termasuk *reaction time* milidetik) untuk membuktikan siapa yang menekan bel lebih dulu secara adil.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### 🎯 Mode Permainan
+* **Mode 1: Rebutan Standar**: Kuis tanya-jawab klasik dengan dukungan *Multiplier* poin (1x, 2x, 3x).
+* **Mode 2: Tebak Lagu (YouTube Music)**: Integrasi langsung dengan Playlist YouTube. Sistem akan memotong lagu secara otomatis (2s, 5s, 10s) dan menjeda audio seketika saat bel ditekan.
+* **Smart Auto-Skip**: Mendeteksi otomatis jika lagu YouTube diblokir hak cipta pemutaran (*Embed Disabled*) dan melompat ke lagu berikutnya tanpa mengganggu jalannya kuis.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+### ✨ Estetika Visual & Audio
+* **Animasi Klasemen Mulus**: Pergerakan peringkat menggunakan *GPU-accelerated CSS* (translateY) untuk efek melayang yang dramatis saat pemain menyalip posisi lain.
+* **Web Audio Engine**: Menghasilkan suara detak jantung, bel kuis, dan waktu habis langsung dari browser tanpa bergantung pada file MP3 eksternal.
+* **State-Driven UI**: Warna layar berubah secara dinamis (Hijau untuk benar, Merah untuk salah) memberikan umpan balik visual instan bagi penonton.
 
-## Agentic Development
+### ⚙️ Kustomisasi Tanpa Kode
+* **Halaman Pengaturan**: Admin dapat mengubah durasi timer rebutan, timer menjawab, jumlah poin, hingga mode start timer (saat lagu diputar atau setelah lagu habis) langsung dari database.
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+---
 
-```bash
-composer require laravel/boost --dev
+## 🚀 Teknologi yang Digunakan
+* **Backend**: Laravel 11+
+* **Real-time**: Laravel Reverb (WebSockets)
+* **Frontend**: Tailwind CSS, Alpine.js, Axios
+* **Database**: PostgreSQL / MySQL
+* **API**: YouTube IFrame Player API
 
-php artisan boost:install
-```
+---
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+## 🛠️ Cara Menjalankan (Development)
+1. Clone repositori ini.
+2. Jalankan `composer install` dan `npm install`.
+3. Konfigurasi `.env` (pastikan REVERB diaktifkan).
+4. Jalankan migrasi: `php artisan migrate`.
+5. Jalankan server: `php artisan serve` dan `php artisan reverb:start`.
+6. Akses `http://localhost:8000/display` untuk layar utama.
 
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+---
+*Dibuat dengan dedikasi untuk pengalaman kuis yang adil, cepat, dan menyenangkan.*
