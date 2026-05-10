@@ -17,3 +17,4 @@ Route::get('/room/{code}/players', function ($code) {
     $room = \App\Models\Room::where('code', $code)->firstOrFail();
     return $room->players()->orderBy('score', 'desc')->get();
 });
+Route::get('/room/{code}/info', [App\Http\Controllers\GameController::class, 'roomInfo']);

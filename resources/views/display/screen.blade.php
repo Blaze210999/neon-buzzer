@@ -31,17 +31,14 @@
 
         .leaderboard-item {
             height: 6rem;
-            /* 96px */
-            transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1),
-                background-color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+            transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
             will-change: transform, background-color;
         }
     </style>
 </head>
 
-<body class="bg-gray-900 text-white h-screen font-sans overflow-hidden flex flex-col relative" x-data="displayScreen({{ $room->id }}, {{ $players->toJson() }}, {{ cache('room_locked_' . $room->id) ? 'false' : 'true' }}, {{ $room->timer_menjawab }})">
+<body class="bg-gray-900 text-white h-screen font-sans overflow-hidden flex flex-col relative" x-data="displayScreen({{ $room->id }}, {{ $players->toJson() }}, {{ cache('room_locked_' . $room->id) ? 'false' : 'true' }})">
 
-    <!-- TOMBOL AKTIVASI AUDIO -->
     <div x-show="!audioEnabled" x-cloak
         class="absolute inset-0 z-[100] bg-gray-900/90 backdrop-blur-sm flex flex-col items-center justify-center">
         <h2 class="text-3xl font-bold mb-6">Layar Proyektor Siap</h2>
@@ -53,23 +50,21 @@
 
     <div class="container mx-auto p-8 h-full flex flex-col">
 
-        <!-- HEADER -->
         <div class="flex justify-between items-center border-b border-gray-700 pb-6 mb-8">
             <h1
                 class="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 uppercase tracking-tighter drop-shadow-sm">
-                QUIZ</h1>
+                NEON QUIZ</h1>
 
             <div x-show="!isLobby" x-cloak
-                class="flex items-center gap-6 bg-gray-800 p-4 rounded-2xl border border-gray-700 shadow-lg">
-                <div class="bg-white p-2 rounded-xl">{!! \SimpleSoftwareIO\QrCode\Facades\QrCode::size(80)->generate($joinUrl) !!}</div>
-                <div>
+                class="flex items-center gap-6 bg-gray-800 p-3 rounded-2xl border border-gray-700 shadow-lg">
+                <div class="bg-white p-2 rounded-xl">{!! \SimpleSoftwareIO\QrCode\Facades\QrCode::size(120)->margin(1)->generate($joinUrl) !!}</div>
+                <div class="pr-4">
                     <p class="text-gray-400 text-xs tracking-widest mb-1">JOIN SEKARANG</p>
-                    <p class="text-xl text-cyan-400 font-mono font-bold">{{ $joinUrl }}</p>
+                    <p class="text-2xl text-cyan-400 font-mono font-bold">{{ $joinUrl }}</p>
                 </div>
             </div>
         </div>
 
-        <!-- LOBBY SCREEN -->
         <div x-show="isLobby" x-cloak
             class="absolute inset-0 z-50 bg-gray-900 flex flex-col items-center justify-center p-10"
             :class="{ 'hidden': !audioEnabled }">
@@ -82,57 +77,51 @@
                 NEON QUIZ LOBBY
             </h1>
 
-            <div class="flex items-center gap-16 relative z-10">
+            <div class="flex items-center gap-20 relative z-10">
                 <div class="flex flex-col items-center">
                     <div
-                        class="bg-white p-6 rounded-3xl shadow-[0_0_50px_rgba(34,211,238,0.5)] mb-6 border-4 border-cyan-400">
-                        {!! $qrCode !!}</div>
-                    <p class="text-gray-400 tracking-widest uppercase text-sm mb-2">Scan atau ketik link di bawah:</p>
+                        class="bg-white p-6 rounded-[2rem] shadow-[0_0_80px_rgba(34,211,238,0.5)] mb-8 border-8 border-cyan-400">
+                        {!! \SimpleSoftwareIO\QrCode\Facades\QrCode::size(350)->margin(2)->generate($joinUrl) !!}
+                    </div>
+                    <p class="text-gray-400 tracking-widest uppercase text-lg mb-3">Atau ketik link di browser:</p>
                     <p
-                        class="text-3xl text-cyan-400 font-mono font-bold bg-gray-800 px-6 py-3 rounded-2xl border border-gray-700 shadow-inner">
+                        class="text-5xl text-cyan-400 font-mono font-black bg-gray-800 px-10 py-5 rounded-3xl border border-gray-700 shadow-inner tracking-tight">
                         {{ $joinUrl }}</p>
                 </div>
 
                 <div
-                    class="bg-gray-800/80 backdrop-blur-md border border-gray-700 w-[500px] h-[400px] rounded-[3rem] p-8 flex flex-col shadow-2xl">
+                    class="bg-gray-800/80 backdrop-blur-md border border-gray-700 w-[550px] h-[550px] rounded-[3rem] p-8 flex flex-col shadow-2xl">
                     <h2
-                        class="text-2xl text-cyan-400 font-black uppercase tracking-widest mb-6 text-center border-b border-gray-700 pb-4">
+                        class="text-3xl text-cyan-400 font-black uppercase tracking-widest mb-6 text-center border-b border-gray-700 pb-6">
                         Pemain Terdaftar (<span x-text="players.length"></span>)</h2>
-                    <div class="flex flex-wrap gap-3 overflow-y-auto content-start flex-grow pr-2">
+                    <div class="flex flex-wrap gap-4 overflow-y-auto content-start flex-grow pr-2">
                         <template x-for="p in players" :key="p.id">
                             <span
-                                class="bg-gray-700 border border-gray-500 text-white font-bold text-lg px-5 py-2 rounded-xl shadow-md"
+                                class="bg-gray-700 border border-gray-500 text-white font-black text-xl px-6 py-3 rounded-2xl shadow-md"
                                 x-text="p.name"></span>
                         </template>
-                        <div x-show="players.length === 0" class="w-full text-center text-gray-500 mt-10 italic">
-                            Menunggu pemain bergabung...</div>
+                        <div x-show="players.length === 0"
+                            class="w-full text-center text-gray-500 mt-10 text-xl italic font-light">Belum ada pemain
+                            bergabung...</div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- MAIN GAME CONTENT -->
         <div x-show="!isLobby" x-cloak class="grid grid-cols-1 lg:grid-cols-3 gap-10 flex-grow">
-            <!-- Area Tengah: Arena Utama -->
             <div class="lg:col-span-2 flex flex-col">
                 <div class="flex-grow flex flex-col items-center justify-center bg-gray-800 p-8 rounded-[3rem] border border-gray-700 shadow-[0_0_50px_rgba(0,0,0,0.5)] relative overflow-hidden transition-all duration-300"
                     :class="{ 'border-pink-500 shadow-[0_0_80px_rgba(236,72,153,0.6)]': answeringPlayer && !isGameOver }">
 
                     <div x-show="answeringPlayer" class="absolute inset-0 bg-pink-500/10 animate-pulse"></div>
 
-                    <!-- Podium Pemenang -->
                     <div x-show="isGameOver" x-cloak
                         class="absolute inset-0 z-20 bg-gray-900 flex flex-col items-center justify-center p-10">
-                        <div
-                            class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-yellow-500/20 via-gray-900 to-gray-900 animate-pulse">
-                        </div>
                         <h1
                             class="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 mb-12 relative z-10 uppercase tracking-widest drop-shadow-2xl">
                             SELAMAT KEPADA PEMENANG
                         </h1>
-                        <!-- Podium Layout -->
                         <div class="flex items-end justify-center gap-8 relative z-10 w-full max-w-5xl h-80">
-                            <!-- Juara 2 -->
                             <div class="flex flex-col items-center justify-end w-1/3 h-[70%]" x-show="players[1]">
                                 <h3 class="text-4xl font-bold text-white mb-4 uppercase drop-shadow-md"
                                     x-text="players[1]?.name"></h3>
@@ -140,10 +129,7 @@
                                     class="w-full bg-gray-700 border-t-4 border-gray-400 rounded-t-3xl h-full flex justify-center items-center">
                                     <span class="text-5xl font-black text-gray-400">#2</span>
                                 </div>
-                                <div class="mt-4 text-3xl font-mono font-bold text-yellow-400"
-                                    x-text="(players[1]?.score || 0) + ' Pts'"></div>
                             </div>
-                            <!-- Juara 1 -->
                             <div class="flex flex-col items-center justify-end w-1/3 h-full relative"
                                 x-show="players[0]">
                                 <div
@@ -155,10 +141,7 @@
                                     class="w-full bg-gradient-to-t from-yellow-600 to-yellow-400 rounded-t-3xl h-full flex justify-center items-center">
                                     <span class="text-7xl font-black text-gray-900">#1</span>
                                 </div>
-                                <div class="mt-4 text-4xl font-mono font-black text-yellow-400 drop-shadow-lg"
-                                    x-text="(players[0]?.score || 0) + ' Pts'"></div>
                             </div>
-                            <!-- Juara 3 -->
                             <div class="flex flex-col items-center justify-end w-1/3 h-[50%]" x-show="players[2]">
                                 <h3 class="text-3xl font-bold text-white mb-4 uppercase drop-shadow-md"
                                     x-text="players[2]?.name"></h3>
@@ -166,13 +149,10 @@
                                     class="w-full bg-orange-900 border-t-4 border-orange-700 rounded-t-3xl h-full flex justify-center items-center">
                                     <span class="text-4xl font-black text-orange-500">#3</span>
                                 </div>
-                                <div class="mt-4 text-2xl font-mono font-bold text-yellow-400"
-                                    x-text="(players[2]?.score || 0) + ' Pts'"></div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Timer Content -->
                     <div x-show="!isGameOver">
                         <div x-show="!answeringPlayer"
                             class="text-[15rem] font-black font-mono leading-none tracking-tighter transition-colors"
@@ -195,7 +175,6 @@
                 </div>
             </div>
 
-            <!-- Area Kanan: Leaderboard -->
             <div class="bg-gray-800 p-8 rounded-[3rem] border border-gray-700 shadow-xl flex flex-col relative">
                 <h2 class="text-3xl font-black text-cyan-400 mb-8 uppercase tracking-widest text-center">KLASEMEN SKOR
                 </h2>
@@ -236,7 +215,6 @@
         </div>
     </div>
 
-    <!-- ENGINE SUARA -->
     <script>
         const AudioEngine = {
             ctx: null,
@@ -287,7 +265,7 @@
         };
 
         document.addEventListener('alpine:init', () => {
-            Alpine.data('displayScreen', (roomId, initialPlayers, initialLobbyState, timerMenjawab) => ({
+            Alpine.data('displayScreen', (roomId, initialPlayers, initialLobbyState) => ({
                 audioEnabled: false,
                 players: initialPlayers,
                 isLobby: initialLobbyState,
@@ -296,7 +274,7 @@
                 timerInterval: null,
                 lastSecondCount: 0,
                 answeringPlayer: null,
-                answerTimeLeft: timerMenjawab,
+                answerTimeLeft: 30,
                 answerTimerInterval: null,
                 isGameOver: false,
                 highlightedPlayers: [],
@@ -309,10 +287,21 @@
 
                 init() {
                     window.Echo.channel(`room.${roomId}`)
-                        .listen('GameStateChanged', (e) => {
+                        .listen('GameStateChanged', async (e) => {
                             if (e.action === 'start') {
                                 this.isGameOver = false;
-                                this.startTimer(new Date(e.timerEndsAt).getTime());
+
+                                // FIX: Ambil durasi langsung dari database agar 100% akurat
+                                let res = await axios.get(`/api/room/neon/info`);
+                                let room = res.data;
+
+                                // Cek ini lagi main Mode 1 atau Mode 2?
+                                let duration = room.active_mode === 'mode2' ? room
+                                    .m2_timer_rebutan : room.timer_rebutan;
+
+                                // Kalkulasi batas waktu murni menggunakan mesin Javascript Proyektor
+                                let endsAt = new Date().getTime() + (duration * 1000);
+                                this.startTimer(endsAt);
                             } else if (e.action === 'reset') {
                                 this.resetGame();
                                 this.updateScores();
@@ -327,11 +316,22 @@
                                 this.isLobby = true;
                             }
                         })
-                        .listen('PlayerBuzzed', (e) => {
+                        .listen('PlayerBuzzed', async (e) => {
                             clearInterval(this.timerInterval);
                             this.answeringPlayer = e.player;
+                            if (window.ytPlayer && typeof window.ytPlayer.pauseVideo ===
+                                'function') {
+                                window.ytPlayer.pauseVideo();
+                            }
                             AudioEngine.playBuzzer();
-                            this.startAnswerTimer(timerMenjawab);
+
+                            // Ambil Timer Jawab sesuai mode aktif
+                            let res = await axios.get(`/api/room/neon/info`);
+                            let room = res.data;
+                            let duration = room.active_mode === 'mode2' ? room
+                                .m2_timer_menjawab : room.timer_menjawab;
+
+                            this.startAnswerTimer(duration);
                         });
                 },
 
@@ -369,6 +369,11 @@
                             this.displayTime = '00.0';
                             this.timeLeft = 0;
                             AudioEngine.playTimeUp();
+
+                            // BUG FIX: Paksa reset ke server agar pintu bel ditutup permanen!
+                            axios.post(`/api/room/neon/control`, {
+                                action: 'reset'
+                            });
                         } else {
                             this.timeLeft = diff / 1000;
                             this.displayTime = this.timeLeft.toFixed(1);

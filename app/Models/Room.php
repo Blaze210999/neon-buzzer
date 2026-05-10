@@ -13,9 +13,12 @@ class Room extends Model
         'timer_rebutan',
         'timer_menjawab',
         'poin_benar',
-        'poin_salah' // <--- Tambahkan ini
+        'poin_salah',
+        'm2_timer_rebutan',
+        'm2_timer_menjawab',
+        'm2_timer_start',
+        'active_mode' // <--- Tambahkan ini
     ];
-
     // Tambahkan relasi ini ke tabel Player:
     public function players()
     {

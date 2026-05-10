@@ -22,11 +22,13 @@ class GameController extends Controller
         return view('display.screen', compact('room', 'players', 'qrCode', 'joinUrl'));
     }
 
-    // Tampilan Dashboard Pilih Mode Game
     public function adminDashboard($code)
     {
         $room = \App\Models\Room::firstOrCreate(['code' => $code]);
-        return view('admin.dashboard', compact('room'));
+        // Tambahkan baris ini untuk mengambil daftar pemain
+        $players = $room->players()->orderBy('score', 'desc')->get();
+
+        return view('admin.dashboard', compact('room', 'players'));
     }
 
     // Tampilan Panel Kendali Rahasia (Banyak Tombol) - Berubah nama dari 'admin' ke 'adminControl'
@@ -51,27 +53,24 @@ class GameController extends Controller
 
     public function control(Request $request, $code)
     {
-        $room = Room::where('code', $code)->firstOrFail();
-        $action = $request->action;
+        $room = \App\Models\Room::where('code', $code)->firstOrFail();
 
-        if ($action === 'start') {
-            $duration = $request->duration ?? 10;
-            $endsAt = now()->addSeconds($duration);
-            $room->update(['status' => 'playing', 'timer_ends_at' => $endsAt]);
+        if ($request->action === 'start') {
+            $room->update([
+                'status' => 'playing',
+                'timer_ends_at' => now()->addSeconds($request->duration),
+                'active_mode' => $request->mode ?? $room->active_mode // SIMPAN MODE
+            ]);
 
-            // Buka kunci buzzer
-            cache()->forget("buzzer_lock_{$room->id}");
-
-            broadcast(new GameStateChanged($room->id, 'start', $endsAt->toIso8601String()));
-        } elseif ($action === 'reset') {
+            // HAPUS PARAMETER KETIGA AGAR ERROR MERAH DI VS CODE HILANG:
+            broadcast(new \App\Events\GameStateChanged($room->id, 'start'));
+        } elseif ($request->action === 'reset') {
             $room->update(['status' => 'waiting', 'timer_ends_at' => null]);
-            cache()->forget("buzzer_lock_{$room->id}");
-            broadcast(new GameStateChanged($room->id, 'reset'));
+            broadcast(new \App\Events\GameStateChanged($room->id, 'reset'));
         }
 
         return response()->json(['success' => true]);
     }
-
 
     // Tambahkan fungsi baru untuk reset semua skor
     public function resetScores($code)
@@ -89,9 +88,12 @@ class GameController extends Controller
         $player = $room->players()->findOrFail($request->player_id);
         $multiplier = (int) ($request->multiplier ?? 1);
 
+        // MODIFIKASI: Gunakan custom_points jika dikirim dari frontend (Mode 2)
+        $poinBenar = $request->custom_points ?? $room->poin_benar;
+
         $poinBerubah = 0;
         if ($request->is_correct) {
-            $poinBerubah = $room->poin_benar * $multiplier;
+            $poinBerubah = $poinBenar * $multiplier;
             $player->increment('score', $poinBerubah);
         } else {
             $poinBerubah = - ($room->poin_salah * $multiplier);
@@ -107,7 +109,8 @@ class GameController extends Controller
                 'is_correct' => $request->is_correct,
                 'multiplier' => $multiplier,
                 'points_changed' => $poinBerubah,
-                'new_total_score' => $player->fresh()->score
+                'new_total_score' => $player->fresh()->score,
+                'mode' => $request->custom_points ? 'mode_2' : 'mode_1'
             ]
         ]);
 
@@ -185,6 +188,10 @@ class GameController extends Controller
             'timer_menjawab' => $request->timer_menjawab,
             'poin_benar' => $request->poin_benar,
             'poin_salah' => $request->poin_salah,
+            // TAMBAHAN MODE 2
+            'm2_timer_rebutan' => $request->m2_timer_rebutan,
+            'm2_timer_menjawab' => $request->m2_timer_menjawab,
+            'm2_timer_start' => $request->m2_timer_start,
         ]);
         return redirect()->route('game.admin.dashboard')->with('success', 'Pengaturan berhasil disimpan!');
     }
@@ -200,5 +207,15 @@ class GameController extends Controller
             ->get();
 
         return view('admin.logs', compact('room', 'logs'));
+    }
+    public function adminMode2($code)
+    {
+        $room = \App\Models\Room::firstOrCreate(['code' => $code]);
+        $players = $room->players()->orderBy('score', 'desc')->get();
+        return view('admin.mode2', compact('room', 'players'));
+    }
+    public function roomInfo($code)
+    {
+        return response()->json(\App\Models\Room::where('code', $code)->first());
     }
 }

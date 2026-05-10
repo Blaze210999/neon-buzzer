@@ -2,21 +2,34 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Request;
 use App\Models\Room;
 use App\Models\Player;
-use App\Models\Buzz;
 use App\Events\PlayerBuzzed;
 use App\Events\GameStateChanged;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache; // PENTING: Jangan sampai ketinggalan
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cookie;
 
 class PlayerController extends Controller
 {
-    public function joinForm($code)
+    // 1. TAMPILKAN FORM JOIN
+    public function joinForm(Request $request, $code)
     {
         $room = Room::where('code', $code)->firstOrFail();
 
-        // CEK APAKAH LOBBY DIKUNCI
+        // CEK 1 DEVICE 1 PEMAIN: Ambil ID pemain dari Cookie atau Session
+        $playerId = $request->cookie('player_device_' . $room->id) ?? session('player_id');
+
+        if ($playerId) {
+            // Pastikan pemain ini memang masih ada di database (Belum di-Kick Admin)
+            $existingPlayer = Player::where('id', $playerId)->where('room_id', $room->id)->first();
+            if ($existingPlayer) {
+                // Kunci! Langsung lempar ke dalam arena, jangan kasih form lagi.
+                session(['player_id' => $existingPlayer->id]);
+                return redirect()->route('player.play');
+            }
+        }
+
         if (cache('room_locked_' . $room->id)) {
             return view('player.locked');
         }
@@ -24,55 +37,80 @@ class PlayerController extends Controller
         return view('player.join', compact('room'));
     }
 
+    // 2. PROSES PENDAFTARAN
     public function join(Request $request, $code)
     {
-        $room = \App\Models\Room::where('code', $code)->firstOrFail();
+        $room = Room::where('code', $code)->firstOrFail();
+
         if (cache('room_locked_' . $room->id)) {
             return view('player.locked');
         }
 
         $request->validate(['name' => 'required|string|max:20']);
 
-        // Cek apakah pemain ini orang baru atau reconnect
-        $isReconnect = \App\Models\Player::where('session_id', session()->getId())
-            ->where('room_id', $room->id)->exists();
+        // Buat ID permanen untuk HP/Browser ini (agar tidak bisa buka tab ganda)
+        $deviceId = $request->cookie('device_id') ?? Str::uuid()->toString();
 
-        $player = \App\Models\Player::updateOrCreate(
-            ['session_id' => session()->getId(), 'room_id' => $room->id],
+        $isReconnect = Player::where('session_id', $deviceId)->where('room_id', $room->id)->exists();
+
+        // Buat atau Update data pemain berdasarkan Device ID-nya
+        $player = Player::updateOrCreate(
+            ['session_id' => $deviceId, 'room_id' => $room->id],
             ['name' => $request->name]
         );
+
         session(['player_id' => $player->id]);
 
-        // CATAT KE AUDIT LOG
         \App\Models\GameLog::create([
             'room_id' => $room->id,
             'player_id' => $player->id,
             'action' => $isReconnect ? 'reconnect' : 'join',
-            'payload' => ['ip_address' => $request->ip()]
+            'payload' => ['ip_address' => $request->ip(), 'device_id' => $deviceId]
         ]);
 
-        broadcast(new \App\Events\GameStateChanged($room->id, 'player_joined'));
+        broadcast(new GameStateChanged($room->id, 'player_joined'));
+
+        // TANAMKAN COOKIE: Tandai HP ini selama 12 Jam
+        Cookie::queue('device_id', $deviceId, 60 * 12);
+        Cookie::queue('player_device_' . $room->id, $player->id, 60 * 12);
+
         return redirect()->route('player.play');
     }
 
-    public function play($code)
+    // 3. HALAMAN TOMBOL BEL UTAMA
+    public function play(Request $request, $code)
     {
         $room = Room::where('code', $code)->firstOrFail();
-        $player = Player::findOrFail(session('player_id'));
-        return view('player.buzzer', compact('room', 'player'));
+
+        // Cari siapa yang sedang main di HP ini
+        $playerId = session('player_id') ?? $request->cookie('player_device_' . $room->id);
+        $player = Player::where('id', $playerId)->where('room_id', $room->id)->first();
+
+        // Jika dia mencoba masuk tapi tidak ada datanya (mungkin sudah di-kick Admin)
+        if (!$player) {
+            // Hapus cookie bekas dan tendang balik ke halaman awal
+            return redirect()->route('player.joinForm')->withCookies([
+                Cookie::forget('player_device_' . $room->id)
+            ]);
+        }
+
+        // Perpanjang masa hidup session agar tidak putus di tengah kuis
+        session(['player_id' => $player->id]);
+
+        return view('player.play', compact('room', 'player'));
     }
 
+    // 4. LOGIKA PENCET BEL
     public function buzz(Request $request, $code)
     {
-        $room = \App\Models\Room::where('code', $code)->firstOrFail();
-        $player = \App\Models\Player::findOrFail($request->player_id);
+        $room = Room::where('code', $code)->firstOrFail();
+        $player = Player::findOrFail($request->player_id);
 
-        $affectedRows = \App\Models\Room::where('id', $room->id)
+        $affectedRows = Room::where('id', $room->id)
             ->where('status', 'playing')
             ->update(['status' => 'locked']);
 
         if ($affectedRows > 0) {
-            // CATAT KE AUDIT LOG
             \App\Models\GameLog::create([
                 'room_id' => $room->id,
                 'player_id' => $player->id,
@@ -80,8 +118,8 @@ class PlayerController extends Controller
                 'payload' => ['reaction_time_ms' => $request->reaction_time ?? 0]
             ]);
 
-            broadcast(new \App\Events\PlayerBuzzed($player, $request->reaction_time ?? 0));
-            broadcast(new \App\Events\GameStateChanged($room->id, 'locked'));
+            broadcast(new PlayerBuzzed($player, $request->reaction_time ?? 0));
+            broadcast(new GameStateChanged($room->id, 'locked'));
             return response()->json(['status' => 'winner']);
         }
         return response()->json(['status' => 'late']);
