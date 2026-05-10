@@ -52,7 +52,7 @@
         </div>
 
         <div x-show="answeringPlayer" style="display: none;"
-            class="text-center bg-gray-800 border-2 border-pink-500 p-8 rounded-[2rem] shadow-[0_0_40px_rgba(236,72,153,0.3)] animate-pulse">
+            class="text-center bg-gray-800 border-2 border-pink-500 p-8 rounded-[2rem] shadow-[0_0_40px_rgba(236,72,153,0.3)]">
             <p class="text-gray-400 mb-4 text-sm uppercase tracking-widest font-bold">Multiplier Skor:</p>
             <div class="flex justify-center gap-3 mb-8">
                 <template x-for="m in [1, 2, 3]">
@@ -65,14 +65,18 @@
             <h2 class="text-5xl font-black text-pink-500 uppercase mb-8 drop-shadow-md" x-text="answeringPlayer?.name">
             </h2>
 
-            <div class="flex flex-col gap-4">
+            <div class="flex flex-col gap-4 relative z-10">
                 <button @click="gradeAnswer(true)"
-                    class="w-full bg-blue-600 hover:bg-blue-500 text-white text-2xl font-black py-6 rounded-2xl shadow-lg transition transform hover:scale-105">
+                    class="w-full bg-blue-600 hover:bg-blue-500 text-white text-2xl font-black py-6 rounded-2xl shadow-lg transition transform hover:scale-105 cursor-pointer">
                     ✅ BENAR (+<span x-text="{{ $room->poin_benar }} * multiplier"></span>)
                 </button>
                 <button @click="gradeAnswer(false)"
-                    class="w-full bg-red-600 hover:bg-red-500 text-white text-2xl font-black py-6 rounded-2xl shadow-lg transition transform hover:scale-105">
+                    class="w-full bg-red-600 hover:bg-red-500 text-white text-2xl font-black py-6 rounded-2xl shadow-lg transition transform hover:scale-105 cursor-pointer">
                     ❌ SALAH (-<span x-text="{{ $room->poin_salah }} * multiplier"></span>)
+                </button>
+                <button @click="triggerVAR()"
+                    class="w-full mt-4 bg-cyan-600 hover:bg-cyan-500 text-white text-xl font-black py-4 rounded-2xl shadow-lg border border-cyan-400 transition transform hover:scale-105 cursor-pointer">
+                    📺 PUTAR VAR REPLAY
                 </button>
             </div>
         </div>
@@ -95,7 +99,6 @@
                             this.answeringPlayer = e.player;
                         });
                 },
-                // KIRIM PARAMETER MODE 1
                 control(action) {
                     axios.post(`/api/room/neon/control`, {
                         action: action,
@@ -111,6 +114,11 @@
                             multiplier: this.multiplier
                         })
                         .then(() => location.reload());
+                },
+                triggerVAR() {
+                    axios.post(`/api/room/neon/control`, {
+                        action: 'trigger_var'
+                    });
                 }
             }));
         });

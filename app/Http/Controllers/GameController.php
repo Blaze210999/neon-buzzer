@@ -62,14 +62,15 @@ class GameController extends Controller
             $room->update([
                 'status' => 'playing',
                 'timer_ends_at' => now()->addSeconds($request->duration),
-                'active_mode' => $request->mode ?? $room->active_mode // SIMPAN MODE
+                'active_mode' => $request->mode ?? $room->active_mode
             ]);
-
-            // HAPUS PARAMETER KETIGA AGAR ERROR MERAH DI VS CODE HILANG:
             broadcast(new GameStateChanged($room->id, 'start'));
         } elseif ($request->action === 'reset') {
             $room->update(['status' => 'waiting', 'timer_ends_at' => null]);
             broadcast(new GameStateChanged($room->id, 'reset'));
+        } elseif ($request->action === 'trigger_var') {
+            // Sinyal khusus untuk mengaktifkan VAR di proyektor
+            broadcast(new GameStateChanged($room->id, 'trigger_var'));
         }
 
         return response()->json(['success' => true]);
@@ -85,15 +86,22 @@ class GameController extends Controller
 
         return response()->json(['success' => true]);
     }
-    public function grade(Request $request, Room $room)
+    public function grade(Request $request, $code) // KEMBALIKAN KE $code
     {
+        // Cari room secara manual berdasarkan kolom 'code', bukan 'id'
+        $room = Room::where('code', $code)->firstOrFail();
         $player = $room->players()->findOrFail($request->player_id);
         $multiplier = (int) ($request->multiplier ?? 1);
 
+        // Pertahankan optimasi DB::transaction milikmu yang sangat bagus ini!
         DB::transaction(function () use ($room, $player, $request, $multiplier) {
             $poinBerubah = 0;
+
+            // LOGIKA MODE 2: Gunakan custom_points jika dikirim dari frontend
+            $poinBenar = $request->custom_points ?? $room->poin_benar;
+
             if ($request->is_correct) {
-                $poinBerubah = $room->poin_benar * $multiplier;
+                $poinBerubah = $poinBenar * $multiplier;
                 $player->increment('score', $poinBerubah);
             } else {
                 $poinBerubah = - ($room->poin_salah * $multiplier);
@@ -108,7 +116,8 @@ class GameController extends Controller
                     'is_correct' => $request->is_correct,
                     'multiplier' => $multiplier,
                     'points_changed' => $poinBerubah,
-                    'new_total_score' => $player->fresh()->score
+                    'new_total_score' => $player->fresh()->score,
+                    'mode' => $request->custom_points ? 'mode_2' : 'mode_1'
                 ]
             ]);
 

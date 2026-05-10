@@ -127,13 +127,26 @@
                             class="text-white" x-text="currentPoints + ' Pts'"></span></p>
                     <h2 class="text-4xl font-black text-purple-400 uppercase mb-8 drop-shadow-md"
                         x-text="answeringPlayer?.name"></h2>
-                    <div class="flex flex-col gap-4">
-                        <button @click="gradeAnswer(true)"
-                            class="w-full bg-green-600 hover:bg-green-500 text-white text-xl font-black py-5 rounded-2xl shadow-lg transition transform hover:scale-105">✅
-                            BENAR (+<span x-text="currentPoints"></span>)</button>
-                        <button @click="gradeAnswer(false)"
-                            class="w-full bg-red-600 hover:bg-red-500 text-white text-xl font-black py-5 rounded-2xl shadow-lg transition transform hover:scale-105">❌
-                            SALAH</button>
+                    <div x-show="answeringPlayer" style="display: none;"
+                        class="bg-gray-800 border-2 border-purple-500 p-8 rounded-3xl shadow-[0_0_40px_rgba(168,85,247,0.3)] text-center">
+                        <p class="text-gray-400 mb-2 text-xs uppercase tracking-[0.2em] font-bold">Menjawab untuk <span
+                                class="text-white" x-text="currentPoints + ' Pts'"></span></p>
+                        <h2 class="text-4xl font-black text-purple-400 uppercase mb-8 drop-shadow-md"
+                            x-text="answeringPlayer?.name"></h2>
+                        <div class="flex flex-col gap-4">
+                            <button @click="gradeAnswer(true)"
+                                class="w-full bg-green-600 hover:bg-green-500 text-white text-xl font-black py-5 rounded-2xl shadow-lg transition transform hover:scale-105">
+                                ✅ BENAR (+<span x-text="currentPoints"></span>)
+                            </button>
+                            <button @click="gradeAnswer(false)"
+                                class="w-full bg-red-600 hover:bg-red-500 text-white text-xl font-black py-5 rounded-2xl shadow-lg transition transform hover:scale-105">
+                                ❌ SALAH
+                            </button>
+                            <button @click="triggerVAR()"
+                                class="w-full mt-4 bg-cyan-600 hover:bg-cyan-500 text-white text-lg font-black py-4 rounded-2xl shadow-lg border border-cyan-400 transition transform hover:scale-105">
+                                📺 PUTAR VAR REPLAY
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -275,7 +288,7 @@
 
                 playRound(duration, points) {
                     if (!this.currentVideoId) return alert(
-                    "Tunggu sebentar, data lagu sedang ditarik!");
+                        "Tunggu sebentar, data lagu sedang ditarik!");
                     this.currentPoints = points;
                     this.targetDuration = duration;
 
@@ -316,7 +329,12 @@
                     }).then(() => {
                         this.answeringPlayer = null;
                     });
-                }
+                },
+                triggerVAR() {
+                    axios.post(`/api/room/neon/control`, {
+                        action: 'trigger_var'
+                    });
+                },
             }));
         });
     </script>
