@@ -7,6 +7,7 @@ use App\Models\Room;
 use App\Models\Player;
 use App\Events\PlayerBuzzed;
 use App\Events\GameStateChanged;
+use App\Models\GameLog;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cookie;
 
@@ -61,7 +62,7 @@ class PlayerController extends Controller
 
         session(['player_id' => $player->id]);
 
-        \App\Models\GameLog::create([
+        GameLog::create([
             'room_id' => $room->id,
             'player_id' => $player->id,
             'action' => $isReconnect ? 'reconnect' : 'join',
@@ -111,7 +112,7 @@ class PlayerController extends Controller
             ->update(['status' => 'locked']);
 
         if ($affectedRows > 0) {
-            \App\Models\GameLog::create([
+            GameLog::create([
                 'room_id' => $room->id,
                 'player_id' => $player->id,
                 'action' => 'buzz',

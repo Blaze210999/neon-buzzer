@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Room;
 use App\Events\GameStateChanged;
+use App\Models\GameLog;
+use App\Models\Player;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class GameController extends Controller
@@ -17,7 +20,7 @@ class GameController extends Controller
         // UBAH BARIS INI: Hapus tulisan /join/{$code} menjadi "/"
         $joinUrl = url("/");
 
-        $qrCode = \SimpleSoftwareIO\QrCode\Facades\QrCode::size(150)->generate($joinUrl);
+        $qrCode = QrCode::size(150)->generate($joinUrl);
 
         return view('display.screen', compact('room', 'players', 'qrCode', 'joinUrl'));
     }
@@ -46,14 +49,14 @@ class GameController extends Controller
         $room = \App\Models\Room::where('code', $code)->firstOrFail();
 
         // Broadcast sinyal 'end_game' ke semua layar
-        broadcast(new \App\Events\GameStateChanged($room->id, 'end_game'));
+        broadcast(new GameStateChanged($room->id, 'end_game'));
 
         return response()->json(['success' => true]);
     }
 
     public function control(Request $request, $code)
     {
-        $room = \App\Models\Room::where('code', $code)->firstOrFail();
+        $room = Room::where('code', $code)->firstOrFail();
 
         if ($request->action === 'start') {
             $room->update([
@@ -63,10 +66,10 @@ class GameController extends Controller
             ]);
 
             // HAPUS PARAMETER KETIGA AGAR ERROR MERAH DI VS CODE HILANG:
-            broadcast(new \App\Events\GameStateChanged($room->id, 'start'));
+            broadcast(new GameStateChanged($room->id, 'start'));
         } elseif ($request->action === 'reset') {
             $room->update(['status' => 'waiting', 'timer_ends_at' => null]);
-            broadcast(new \App\Events\GameStateChanged($room->id, 'reset'));
+            broadcast(new GameStateChanged($room->id, 'reset'));
         }
 
         return response()->json(['success' => true]);
@@ -78,57 +81,54 @@ class GameController extends Controller
         $room = \App\Models\Room::where('code', $code)->firstOrFail();
         $room->players()->update(['score' => 0]); // Setel semua skor ke 0
 
-        broadcast(new \App\Events\GameStateChanged($room->id, 'reset'));
+        broadcast(new GameStateChanged($room->id, 'reset'));
 
         return response()->json(['success' => true]);
     }
-    public function grade(Request $request, $code)
+    public function grade(Request $request, Room $room)
     {
-        $room = \App\Models\Room::where('code', $code)->firstOrFail();
         $player = $room->players()->findOrFail($request->player_id);
         $multiplier = (int) ($request->multiplier ?? 1);
 
-        // MODIFIKASI: Gunakan custom_points jika dikirim dari frontend (Mode 2)
-        $poinBenar = $request->custom_points ?? $room->poin_benar;
+        DB::transaction(function () use ($room, $player, $request, $multiplier) {
+            $poinBerubah = 0;
+            if ($request->is_correct) {
+                $poinBerubah = $room->poin_benar * $multiplier;
+                $player->increment('score', $poinBerubah);
+            } else {
+                $poinBerubah = - ($room->poin_salah * $multiplier);
+                $player->decrement('score', abs($poinBerubah));
+            }
 
-        $poinBerubah = 0;
-        if ($request->is_correct) {
-            $poinBerubah = $poinBenar * $multiplier;
-            $player->increment('score', $poinBerubah);
-        } else {
-            $poinBerubah = - ($room->poin_salah * $multiplier);
-            $player->decrement('score', abs($poinBerubah));
-        }
+            GameLog::create([
+                'room_id' => $room->id,
+                'player_id' => $player->id,
+                'action' => 'answer',
+                'payload' => [
+                    'is_correct' => $request->is_correct,
+                    'multiplier' => $multiplier,
+                    'points_changed' => $poinBerubah,
+                    'new_total_score' => $player->fresh()->score
+                ]
+            ]);
 
-        // CATAT KE AUDIT LOG
-        \App\Models\GameLog::create([
-            'room_id' => $room->id,
-            'player_id' => $player->id,
-            'action' => 'answer',
-            'payload' => [
-                'is_correct' => $request->is_correct,
-                'multiplier' => $multiplier,
-                'points_changed' => $poinBerubah,
-                'new_total_score' => $player->fresh()->score,
-                'mode' => $request->custom_points ? 'mode_2' : 'mode_1'
-            ]
-        ]);
+            $room->update(['status' => 'waiting', 'timer_ends_at' => null]);
+        });
 
-        $room->update(['status' => 'waiting', 'timer_ends_at' => null]);
-        broadcast(new \App\Events\GameStateChanged($room->id, 'reset'));
+        broadcast(new GameStateChanged($room->id, 'reset'));
         return response()->json(['success' => true]);
     }
 
     public function timeout(Request $request, $code)
     {
-        $room = \App\Models\Room::where('code', $code)->firstOrFail();
-        $player = \App\Models\Player::find($request->player_id);
+        $room = Room::where('code', $code)->firstOrFail();
+        $player = Player::find($request->player_id);
 
         if ($player) {
             $player->decrement('score', $room->poin_salah);
 
             // CATAT KE AUDIT LOG
-            \App\Models\GameLog::create([
+            GameLog::create([
                 'room_id' => $room->id,
                 'player_id' => $player->id,
                 'action' => 'penalty',
@@ -141,48 +141,47 @@ class GameController extends Controller
         }
 
         $room->update(['status' => 'waiting', 'timer_ends_at' => null]);
-        broadcast(new \App\Events\GameStateChanged($room->id, 'reset'));
+        broadcast(new GameStateChanged($room->id, 'reset'));
         return response()->json(['success' => true]);
     }
     public function kickPlayer($code, $playerId)
     {
-        $room = \App\Models\Room::where('code', $code)->firstOrFail();
-        $player = \App\Models\Player::where('room_id', $room->id)->findOrFail($playerId);
+        $room = Room::where('code', $code)->firstOrFail();
+        $player = Player::where('room_id', $room->id)->findOrFail($playerId);
 
-        $player->delete(); // Hapus pemain dari database
+        $player->delete();
 
-        // Beri sinyal refresh ke semua layar agar nama pemain hilang dari klasemen
-        broadcast(new \App\Events\GameStateChanged($room->id, 'reset'));
+        broadcast(new GameStateChanged($room->id, 'reset'));
 
         return response()->json(['success' => true]);
     }
 
     public function lockLobby($code)
     {
-        $room = \App\Models\Room::where('code', $code)->firstOrFail();
+        $room = Room::where('code', $code)->firstOrFail();
         cache(['room_locked_' . $room->id => true], now()->addHours(12)); // Kunci selama 12 jam
-        broadcast(new \App\Events\GameStateChanged($room->id, 'lobby_locked'));
+        broadcast(new GameStateChanged($room->id, 'lobby_locked'));
         return response()->json(['success' => true]);
     }
 
     public function unlockLobby($code)
     {
-        $room = \App\Models\Room::where('code', $code)->firstOrFail();
+        $room = Room::where('code', $code)->firstOrFail();
         cache()->forget('room_locked_' . $room->id);
-        broadcast(new \App\Events\GameStateChanged($room->id, 'lobby_unlocked'));
+        broadcast(new GameStateChanged($room->id, 'lobby_unlocked'));
         return response()->json(['success' => true]);
     }
     // Halaman Pengaturan
     public function adminSettings($code)
     {
-        $room = \App\Models\Room::firstOrCreate(['code' => $code]);
+        $room = Room::firstOrCreate(['code' => $code]);
         return view('admin.settings', compact('room'));
     }
 
     // Simpan Pengaturan
     public function saveSettings(Request $request, $code)
     {
-        $room = \App\Models\Room::where('code', $code)->firstOrFail();
+        $room = Room::where('code', $code)->firstOrFail();
         $room->update([
             'timer_rebutan' => $request->timer_rebutan,
             'timer_menjawab' => $request->timer_menjawab,
@@ -198,10 +197,9 @@ class GameController extends Controller
     // Halaman Audit Log (VAR)
     public function adminLogs($code)
     {
-        $room = \App\Models\Room::where('code', $code)->firstOrFail();
+        $room = Room::where('code', $code)->firstOrFail();
 
-        // Ambil data log, urutkan dari yang paling baru, dan sertakan relasi data pemainnya
-        $logs = \App\Models\GameLog::with('player')
+        $logs = GameLog::with('player')
             ->where('room_id', $room->id)
             ->orderBy('created_at', 'desc')
             ->get();
@@ -210,12 +208,12 @@ class GameController extends Controller
     }
     public function adminMode2($code)
     {
-        $room = \App\Models\Room::firstOrCreate(['code' => $code]);
+        $room = Room::firstOrCreate(['code' => $code]);
         $players = $room->players()->orderBy('score', 'desc')->get();
         return view('admin.mode2', compact('room', 'players'));
     }
     public function roomInfo($code)
     {
-        return response()->json(\App\Models\Room::where('code', $code)->first());
+        return response()->json(Room::where('code', $code)->first());
     }
 }
